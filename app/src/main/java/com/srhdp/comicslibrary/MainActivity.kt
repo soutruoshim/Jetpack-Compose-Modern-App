@@ -1,6 +1,7 @@
 package com.srhdp.comicslibrary
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -11,14 +12,17 @@ import androidx.compose.material.Surface
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.srhdp.comicslibrary.ui.theme.ComicsLibraryTheme
 import com.srhdp.comicslibrary.view.CharacterBottomNav
+import com.srhdp.comicslibrary.view.CharacterDetailScreen
 import com.srhdp.comicslibrary.view.CollectionScreen
 import com.srhdp.comicslibrary.view.LibraryScreen
+import com.srhdp.comicslibrary.viewmodel.CollectionDbViewModel
 import com.srhdp.comicslibrary.viewmodel.LibraryApiViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -33,6 +37,8 @@ sealed class Destination(val route: String) {
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val lvm by viewModels<LibraryApiViewModel>()
+    private val cvm by viewModels<CollectionDbViewModel>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -43,7 +49,7 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colors.background
                 ) {
                     val navController = rememberNavController()
-                    CharacterScaffold(navController = navController, lvm)
+                    CharacterScaffold(navController = navController, lvm, cvm)
                 }
             }
         }
@@ -51,9 +57,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun CharacterScaffold(navController: NavHostController,  lvm: LibraryApiViewModel) {
+fun CharacterScaffold(navController: NavHostController,  lvm: LibraryApiViewModel,  cvm: CollectionDbViewModel) {
     val scaffoldState = rememberScaffoldState()
-
+    val ctx = LocalContext.current
     Scaffold(
         scaffoldState = scaffoldState,
         bottomBar = { CharacterBottomNav(navController = navController) }
@@ -63,10 +69,21 @@ fun CharacterScaffold(navController: NavHostController,  lvm: LibraryApiViewMode
                 LibraryScreen(navController, lvm, paddingValues)
             }
             composable(Destination.Collection.route) {
-                CollectionScreen()
+                CollectionScreen(cvm, navController)
             }
-            composable(Destination.CharacterDetail.route) {
-
+            composable(Destination.CharacterDetail.route) { navBackStackEntry ->
+                val id = navBackStackEntry.arguments?.getString("characterId")?.toIntOrNull()
+                if (id == null)
+                    Toast.makeText(ctx, "Character id is required", Toast.LENGTH_SHORT).show()
+                else {
+                    lvm.retrieveSingleCharacter(id)
+                    CharacterDetailScreen(
+                        lvm = lvm,
+                        cvm = cvm,
+                        paddingValues = paddingValues,
+                        navController = navController
+                    )
+                }
             }
         }
 
